@@ -1,0 +1,25 @@
+# Ambiente Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Dados brutos (baixados por script, ~40 MB)
+data/raw/
+
+# Base SQLite (regenerada a partir do seed versionado)
+data/patients.db
+
+# Bancos vetoriais (regenerados por script)
+chromadb/
+
+# Modelos treinados (grandes demais para o Git)
+models/
+
+# Logs de auditoria
+logs/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
