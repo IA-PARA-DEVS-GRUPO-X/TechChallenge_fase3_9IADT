@@ -70,3 +70,54 @@ INSTRUCTION_TEMPLATE = (
 
 VERDICT_PREFIX = "Veredito:"
 RATIONALE_PREFIX = "Justificativa:"
+
+# --------------------------------------------------------------------
+# Fine-tuning (QLoRA)
+# --------------------------------------------------------------------
+LORA_CONFIG = {
+    "r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "bias": "none",
+    "task_type": "CAUSAL_LM",
+    "target_modules": [
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",
+    ],
+}
+
+TRAINING_ARGS = {
+    "num_train_epochs": 3,
+    "per_device_train_batch_size": 2,
+    "gradient_accumulation_steps": 8,
+    "learning_rate": 2e-4,
+    "lr_scheduler_type": "cosine",
+    "warmup_steps": 5,
+    "weight_decay": 0.01,
+    "logging_steps": 10,
+    "eval_strategy": "epoch",
+    "save_strategy": "epoch",
+    "save_total_limit": 3,
+    "load_best_model_at_end": True,
+    "metric_for_best_model": "eval_loss",
+    "greater_is_better": False,
+    "optim": "paged_adamw_8bit",
+    "max_grad_norm": 0.3,
+    "seed": RANDOM_SEED,
+    "report_to": "none",
+}
+
+MAX_SEQ_LENGTH = 2048
+
+# --------------------------------------------------------------------
+# Geracao / avaliacao
+# --------------------------------------------------------------------
+GENERATION_ARGS = {
+    "max_new_tokens": 160,
+    "do_sample": False,
+    "temperature": None,
+    "top_p": None,
+    "repetition_penalty": 1.05,
+}
+
+EVAL_RESULTS_FILE = DOCS_DIR / "evaluation_results.json"
