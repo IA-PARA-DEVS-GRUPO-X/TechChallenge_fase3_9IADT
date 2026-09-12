@@ -5,27 +5,27 @@ config:
 ---
 graph TD;
 	__start__([<p>__start__</p>]):::first
-	triagem(triagem)
-	carregar_prontuario(carregar_prontuario)
-	verificar_exames(verificar_exames)
-	alerta_exames(alerta_exames)
-	buscar_evidencia(buscar_evidencia)
-	sugerir_conduta(sugerir_conduta)
+	triage(triage)
+	load_record(load_record)
+	check_exams(check_exams)
+	exams_alert(exams_alert)
+	retrieve_evidence(retrieve_evidence)
+	suggest_approach(suggest_approach)
 	guardrail(guardrail)
-	alertar_equipe(alertar_equipe)
+	alert_team(alert_team)
 	__end__([<p>__end__</p>]):::last
-	__start__ --> triagem;
-	alerta_exames --> buscar_evidencia;
-	buscar_evidencia --> sugerir_conduta;
-	carregar_prontuario -. &nbsp;bloqueado&nbsp; .-> __end__;
-	carregar_prontuario -. &nbsp;ok&nbsp; .-> verificar_exames;
-	guardrail --> alertar_equipe;
-	sugerir_conduta --> guardrail;
-	triagem -. &nbsp;bloqueado&nbsp; .-> __end__;
-	triagem -. &nbsp;ok&nbsp; .-> carregar_prontuario;
-	verificar_exames -. &nbsp;pendentes&nbsp; .-> alerta_exames;
-	verificar_exames -. &nbsp;nenhum&nbsp; .-> buscar_evidencia;
-	alertar_equipe --> __end__;
+	__start__ --> triage;
+	check_exams -. &nbsp;pending&nbsp; .-> exams_alert;
+	check_exams -. &nbsp;none&nbsp; .-> retrieve_evidence;
+	exams_alert --> retrieve_evidence;
+	guardrail --> alert_team;
+	load_record -. &nbsp;blocked&nbsp; .-> __end__;
+	load_record -. &nbsp;ok&nbsp; .-> check_exams;
+	retrieve_evidence --> suggest_approach;
+	suggest_approach --> guardrail;
+	triage -. &nbsp;blocked&nbsp; .-> __end__;
+	triage -. &nbsp;ok&nbsp; .-> load_record;
+	alert_team --> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc

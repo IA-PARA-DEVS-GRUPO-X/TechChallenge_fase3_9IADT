@@ -113,26 +113,30 @@ export_diagram()           # docs/fluxo_langgraph.mmd
 ## Fluxo de decisão (LangGraph)
 
 ```
-triagem ---(bloqueado)-------------------------------> FIM
+triage ---(blocked)----------------------------------> END
    |
-   +--(ok)--> prontuário --> verificar_exames --(pendentes)--> alerta_exames --+
-                                    |                                          |
-                                    +--(nenhum)--------------------------------+
-                                                                               |
-                                                                               v
-              buscar_evidência --> sugerir_conduta --> guardrail --> alertar_equipe --> FIM
+   +--(ok)--> load_record --> check_exams --(pending)--> exams_alert --+
+                                   |                                   |
+                                   +--(none)---------------------------+
+                                                                       |
+                                                                       v
+        retrieve_evidence --> suggest_approach --> guardrail --> alert_team --> END
 ```
 
 | Nó | Função |
 |---|---|
-| `triagem` | Sanitiza PII, barra prompt injection e temas fora de escopo |
-| `carregar_prontuario` | Consulta a base estruturada do paciente |
-| `verificar_exames` | Levanta exames pendentes; define o desvio condicional |
-| `alerta_exames` | Sinaliza conduta sugerida com informação incompleta |
-| `buscar_evidencia` | Recupera trechos científicos no Chroma |
-| `sugerir_conduta` | Gera a sugestão com a LLM customizada |
+| `triage` | Sanitiza PII, barra prompt injection e temas fora de escopo |
+| `load_record` | Consulta a base estruturada do paciente |
+| `check_exams` | Levanta exames pendentes; define o desvio condicional |
+| `exams_alert` | Sinaliza conduta sugerida com informação incompleta |
+| `retrieve_evidence` | Recupera trechos científicos no Chroma |
+| `suggest_approach` | Gera a sugestão com a LLM customizada |
 | `guardrail` | Valida a saída fora do modelo |
-| `alertar_equipe` | Consolida alertas por severidade |
+| `alert_team` | Consolida alertas por severidade |
+
+> O sistema opera em inglês: o modelo foi treinado em inglês e a base de
+> evidências é composta por artigos nesse idioma. As perguntas devem ser
+> formuladas em inglês; a documentação do projeto permanece em português.
 
 ---
 

@@ -1,9 +1,12 @@
 """Fluxo de decisao automatizado do assistente medico (LangGraph).
 
-Requisito: "organizar fluxos de decisao automatizados e seguros, onde, ao 
-receber informacoes sobre um paciente, o
-sistema possa acionar diferentes etapas, como verificar exames pendentes,
-sugerir tratamentos e emitir alertas para a equipe medica".
+Requisito: "organizar fluxos de decisao automatizados e seguros, onde, 
+ao receber informacoes sobre um paciente, o sistema possa acionar diferentes 
+etapas, como verificar exames pendentes,sugerir tratamentos e emitir alertas 
+para a equipe medica".
+
+Nomes de nos e mensagens em ingles, alinhados ao idioma do modelo e da
+interface.
 """
 
 from typing import Dict, List, Optional
@@ -24,20 +27,17 @@ from src.security import audit, guardrails
 class AssistantState(TypedDict, total=False):
     """Estado compartilhado entre os nos do grafo."""
 
-    # entrada
     question: str
     patient_id: Optional[str]
     k: int
     trace_id: str
 
-    # intermediarios
     sanitized_question: str
     patient_context: str
     pending_exams: List[Dict]
     docs: List
     draft_answer: str
 
-    # saida
     answer: str
     sources: List[Dict]
     alerts: List[Dict]
@@ -50,21 +50,21 @@ class AssistantState(TypedDict, total=False):
 def _trace(state: AssistantState, node: str) -> AssistantState:
     """Registra a passagem pelo no, tanto no log quanto no estado."""
     audit.log_event(
-        audit.EVENT_NODE, state["trace_id"], {"no": node},
+        audit.EVENT_NODE, state["trace_id"], {"node": node},
         patient_id=state.get("patient_id"),
     )
     return {"path": state.get("path", []) + [node]}
 
 
 # ------------------------------------------------------------------ nos
-def triagem(state: AssistantState) -> AssistantState:
+def triage(state: AssistantState) -> AssistantState:
     """Guardrail de entrada: sanitiza PII e barra pedidos fora de escopo."""
-    update = _trace(state, "triagem")
+    update = _trace(state, "triage")
     gate = guardrails.check_input(state["question"])
 
     audit.log_event(
         audit.EVENT_INPUT, state["trace_id"],
-        {"pergunta": gate.text, "violacoes": gate.violations},
+        {"question": gate.text, "violations": gate.violations},
         patient_id=state.get("patient_id"),
     )
 
@@ -79,9 +79,9 @@ def triagem(state: AssistantState) -> AssistantState:
     return update
 
 
-def carregar_prontuario(state: AssistantState) -> AssistantState:
+def load_record(state: AssistantState) -> AssistantState:
     """Consulta a base estruturada (SQLite) do paciente, se houver."""
-    update = _trace(state, "carregar_prontuario")
+    update = _trace(state, "load_record")
     patient_id = state.get("patient_id")
 
     if not patient_id:
@@ -91,54 +91,54 @@ def carregar_prontuario(state: AssistantState) -> AssistantState:
     patient = get_patient(patient_id)
     if patient is None:
         audit.log_event(audit.EVENT_ERROR, state["trace_id"],
-                        {"motivo": "paciente_inexistente"},
+                        {"reason": "patient_not_found"},
                         patient_id=patient_id)
         update.update({
             "blocked": True,
-            "answer": f"Paciente {patient_id} nao encontrado na base.",
+            "answer": f"Patient {patient_id} not found in the database.",
             "sources": [], "alerts": [], "patient_context": NO_PATIENT,
         })
         return update
 
     audit.log_event(
         audit.EVENT_PATIENT, state["trace_id"],
-        {"diagnostico": patient["diagnostico"], "alergias": patient["alergias"]},
+        {"diagnosis": patient["diagnostico"], "allergies": patient["alergias"]},
         patient_id=patient_id,
     )
     update["patient_context"] = format_patient(patient)
     return update
 
 
-def verificar_exames(state: AssistantState) -> AssistantState:
+def check_exams(state: AssistantState) -> AssistantState:
     """Levanta os exames pendentes: define o desvio condicional do fluxo."""
-    update = _trace(state, "verificar_exames")
+    update = _trace(state, "check_exams")
     patient_id = state.get("patient_id")
     update["pending_exams"] = get_pending_exams(patient_id) if patient_id else []
     return update
 
 
-def alerta_exames(state: AssistantState) -> AssistantState:
+def exams_alert(state: AssistantState) -> AssistantState:
     """Emite alerta: ha exames que podem mudar a conduta sugerida."""
-    update = _trace(state, "alerta_exames")
-    nomes = [e["nome"] for e in state.get("pending_exams", [])]
+    update = _trace(state, "exams_alert")
+    names = [e["nome"] for e in state.get("pending_exams", [])]
 
-    alerta = {
-        "nivel": "atencao",
-        "tipo": "exames_pendentes",
-        "mensagem": ("Conduta sugerida com informacao incompleta: "
-                     f"{len(nomes)} exame(s) pendente(s) - {', '.join(nomes)}."),
+    alert = {
+        "level": "warning",
+        "type": "pending_exams",
+        "message": ("Advice produced with incomplete information: "
+                    f"{len(names)} pending exam(s) - {', '.join(names)}."),
     }
-    audit.log_event(audit.EVENT_ALERT, state["trace_id"], alerta,
+    audit.log_event(audit.EVENT_ALERT, state["trace_id"], alert,
                     patient_id=state.get("patient_id"))
-    update["alerts"] = state.get("alerts", []) + [alerta]
+    update["alerts"] = state.get("alerts", []) + [alert]
     return update
 
 
-def buscar_evidencia(state: AssistantState) -> AssistantState:
+def retrieve_evidence(state: AssistantState) -> AssistantState:
     """Recupera a evidencia cientifica no banco vetorial (RAG)."""
     from src.rag.vectorstore import get_retriever
 
-    update = _trace(state, "buscar_evidencia")
+    update = _trace(state, "retrieve_evidence")
     k = state.get("k", RETRIEVER_TOP_K)
     docs = get_retriever(k).invoke(state["sanitized_question"])
 
@@ -151,13 +151,13 @@ def buscar_evidencia(state: AssistantState) -> AssistantState:
     return update
 
 
-def sugerir_conduta(state: AssistantState) -> AssistantState:
+def suggest_approach(state: AssistantState) -> AssistantState:
     """Gera a sugestao com a LLM customizada, ancorada em evidencia."""
     from langchain_core.output_parsers import StrOutputParser
 
     from src.app.llm import get_llm
 
-    update = _trace(state, "sugerir_conduta")
+    update = _trace(state, "suggest_approach")
     docs = state.get("docs", [])
 
     chain = ASSISTANT_PROMPT | get_llm() | StrOutputParser()
@@ -168,7 +168,7 @@ def sugerir_conduta(state: AssistantState) -> AssistantState:
     })
 
     audit.log_event(audit.EVENT_LLM, state["trace_id"],
-                    {"caracteres": len(draft)},
+                    {"characters": len(draft)},
                     patient_id=state.get("patient_id"))
     update["draft_answer"] = draft.strip()
     return update
@@ -183,8 +183,8 @@ def guardrail(state: AssistantState) -> AssistantState:
     )
     audit.log_event(
         audit.EVENT_GUARDRAIL, state["trace_id"],
-        {"violacoes": checked.violations,
-         "requer_validacao_humana": checked.requires_human_validation},
+        {"violations": checked.violations,
+         "requires_human_validation": checked.requires_human_validation},
         patient_id=state.get("patient_id"),
     )
 
@@ -197,48 +197,50 @@ def guardrail(state: AssistantState) -> AssistantState:
     return update
 
 
-def alertar_equipe(state: AssistantState) -> AssistantState:
+def alert_team(state: AssistantState) -> AssistantState:
     """Consolida os alertas destinados a equipe medica."""
-    update = _trace(state, "alertar_equipe")
+    update = _trace(state, "alert_team")
     alerts = list(state.get("alerts", []))
     answer = state.get("answer", "")
     patient_id = state.get("patient_id")
-    anteriores = len(alerts)
+    previous = len(alerts)
 
+    # Alerta critico: so e possivel cruzando a saida da LLM com a base
+    # estruturada; nenhum prompt garantiria esta verificacao.
     if patient_id:
         patient = get_patient(patient_id)
-        for substancia in (patient or {}).get("alergias", []):
-            if substancia.lower() in answer.lower():
+        for substance in (patient or {}).get("alergias", []):
+            if substance.lower() in answer.lower():
                 alerts.append({
-                    "nivel": "critico", "tipo": "alergia",
-                    "mensagem": (f"A resposta menciona '{substancia}', "
-                                 f"substancia a qual o paciente {patient_id} "
-                                 "tem alergia registrada."),
+                    "level": "critical", "type": "allergy",
+                    "message": (f"The answer mentions '{substance}', a "
+                                f"substance to which patient {patient_id} "
+                                "has a registered allergy."),
                 })
 
-    violacoes = state.get("violations", [])
-    if "dose_na_saida" in violacoes or "frequencia_na_saida" in violacoes:
+    violations = state.get("violations", [])
+    if "dose_in_output" in violations or "frequency_in_output" in violations:
         alerts.append({
-            "nivel": "critico", "tipo": "tentativa_de_prescricao",
-            "mensagem": ("O modelo produziu posologia; o conteudo foi "
-                         "redigido automaticamente e exige prescricao de "
-                         "profissional habilitado."),
+            "level": "critical", "type": "prescription_attempt",
+            "message": ("The model produced dosing information; it was "
+                        "automatically redacted and requires a prescription "
+                        "from a licensed professional."),
         })
 
-    if "sem_citacao" in violacoes:
+    if "missing_citation" in violations:
         alerts.append({
-            "nivel": "atencao", "tipo": "sem_fonte",
-            "mensagem": ("Resposta sem citacao de PMID: nao foi possivel "
-                         "rastrear a fonte da afirmacao."),
+            "level": "warning", "type": "missing_source",
+            "message": ("Answer without a PMID citation: the source of the "
+                        "claim could not be traced."),
         })
 
     alerts.append({
-        "nivel": "informativo", "tipo": "validacao_humana",
-        "mensagem": ("Sugestao pendente de validacao por profissional de "
-                     "saude responsavel."),
+        "level": "info", "type": "human_validation",
+        "message": ("Advice pending validation by the responsible healthcare "
+                    "professional."),
     })
 
-    for a in alerts[anteriores:]:
+    for a in alerts[previous:]:
         audit.log_event(audit.EVENT_ALERT, state["trace_id"], a,
                         patient_id=patient_id)
 
@@ -247,16 +249,16 @@ def alertar_equipe(state: AssistantState) -> AssistantState:
 
 
 # --------------------------------------------------------- roteamento
-def rota_triagem(state: AssistantState) -> str:
-    return "bloqueado" if state.get("blocked") else "ok"
+def route_triage(state: AssistantState) -> str:
+    return "blocked" if state.get("blocked") else "ok"
 
 
-def rota_prontuario(state: AssistantState) -> str:
-    return "bloqueado" if state.get("blocked") else "ok"
+def route_record(state: AssistantState) -> str:
+    return "blocked" if state.get("blocked") else "ok"
 
 
-def rota_exames(state: AssistantState) -> str:
-    return "pendentes" if state.get("pending_exams") else "nenhum"
+def route_exams(state: AssistantState) -> str:
+    return "pending" if state.get("pending_exams") else "none"
 
 
 # ------------------------------------------------------------- grafo
@@ -266,28 +268,28 @@ def build_graph():
 
     g = StateGraph(AssistantState)
 
-    g.add_node("triagem", triagem)
-    g.add_node("carregar_prontuario", carregar_prontuario)
-    g.add_node("verificar_exames", verificar_exames)
-    g.add_node("alerta_exames", alerta_exames)
-    g.add_node("buscar_evidencia", buscar_evidencia)
-    g.add_node("sugerir_conduta", sugerir_conduta)
+    g.add_node("triage", triage)
+    g.add_node("load_record", load_record)
+    g.add_node("check_exams", check_exams)
+    g.add_node("exams_alert", exams_alert)
+    g.add_node("retrieve_evidence", retrieve_evidence)
+    g.add_node("suggest_approach", suggest_approach)
     g.add_node("guardrail", guardrail)
-    g.add_node("alertar_equipe", alertar_equipe)
+    g.add_node("alert_team", alert_team)
 
-    g.add_edge(START, "triagem")
-    g.add_conditional_edges("triagem", rota_triagem,
-                            {"ok": "carregar_prontuario", "bloqueado": END})
-    g.add_conditional_edges("carregar_prontuario", rota_prontuario,
-                            {"ok": "verificar_exames", "bloqueado": END})
-    g.add_conditional_edges("verificar_exames", rota_exames,
-                            {"pendentes": "alerta_exames",
-                             "nenhum": "buscar_evidencia"})
-    g.add_edge("alerta_exames", "buscar_evidencia")
-    g.add_edge("buscar_evidencia", "sugerir_conduta")
-    g.add_edge("sugerir_conduta", "guardrail")
-    g.add_edge("guardrail", "alertar_equipe")
-    g.add_edge("alertar_equipe", END)
+    g.add_edge(START, "triage")
+    g.add_conditional_edges("triage", route_triage,
+                            {"ok": "load_record", "blocked": END})
+    g.add_conditional_edges("load_record", route_record,
+                            {"ok": "check_exams", "blocked": END})
+    g.add_conditional_edges("check_exams", route_exams,
+                            {"pending": "exams_alert",
+                             "none": "retrieve_evidence"})
+    g.add_edge("exams_alert", "retrieve_evidence")
+    g.add_edge("retrieve_evidence", "suggest_approach")
+    g.add_edge("suggest_approach", "guardrail")
+    g.add_edge("guardrail", "alert_team")
+    g.add_edge("alert_team", END)
 
     return g.compile()
 

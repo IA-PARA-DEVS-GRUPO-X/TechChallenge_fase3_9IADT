@@ -1,14 +1,17 @@
 """Interface de demonstracao (Streamlit) do assistente medico.
 
 Executar:
-    streamlit run src/app/ui.py
+    streamlit run src/app/ui.py --server.enableCORS false \
+        --server.enableXsrfProtection false
+
+Mostra, numa unica tela, os quatro pontos exigidos no video de entrega:
+funcionamento da LLM personalizada, execucao do fluxo automatizado,
+resposta clinica contextualizada e os logs/validacao das respostas.
 """
 
-import json
 import sys
 from pathlib import Path
 
-# Permite `streamlit run src/app/ui.py` sem instalar o pacote.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import streamlit as st  # noqa: E402
@@ -19,100 +22,108 @@ from src.db.patients import list_patients  # noqa: E402
 from src.security import audit  # noqa: E402
 from src.workflow.graph import run_flow  # noqa: E402
 
-NIVEL_UI = {
-    "critico": ("error", "CRITICO"),
-    "atencao": ("warning", "ATENCAO"),
-    "informativo": ("info", "INFO"),
+LEVEL_UI = {
+    "critical": ("error", "CRITICAL"),
+    "warning": ("warning", "WARNING"),
+    "info": ("info", "INFO"),
 }
 
-st.set_page_config(page_title="Assistente Medico - Fase 3", layout="wide")
+EXAMPLES = [
+    "Is early diagnosis associated with better outcomes in sepsis?",
+    "What does the evidence say about corticosteroid use in COPD exacerbation?",
+    "Does early mobilization reduce length of stay in critically ill patients?",
+]
+
+st.set_page_config(page_title="Medical Assistant - Phase 3", layout="wide")
 
 
 @st.cache_data(show_spinner=False)
-def carregar_pacientes():
+def load_patients():
     return list_patients()
 
 
 # ------------------------------------------------------------- sidebar
 with st.sidebar:
-    st.header("Configuracao")
+    st.header("Settings")
 
     if adapter_available():
-        st.success("LLM fine-tunada carregada")
+        st.success("Fine-tuned LLM loaded")
         st.caption(f"{BASE_LLM}\n+ LoRA: {ADAPTER_DIR.name}")
     else:
-        st.warning("Adaptador LoRA ausente: usando o modelo base")
+        st.warning("LoRA adapter missing: using the base model")
 
-    pacientes = carregar_pacientes()
-    opcoes = ["(sem paciente)"] + [
-        f"{p['id']} - {p['iniciais']}, {p['idade']}a, {p['diagnostico']}"
-        for p in pacientes
+    patients = load_patients()
+    options = ["(no patient)"] + [
+        f"{p['id']} - {p['iniciais']}, {p['idade']}y, {p['diagnostico']}"
+        for p in patients
     ]
-    escolha = st.selectbox("Paciente", opcoes)
-    patient_id = None if escolha.startswith("(") else escolha.split(" - ")[0]
+    choice = st.selectbox("Patient", options)
+    patient_id = None if choice.startswith("(") else choice.split(" - ")[0]
 
-    k = st.slider("Trechos de evidencia (k)", 1, 8, RETRIEVER_TOP_K)
+    k = st.slider("Evidence passages (k)", 1, 8, RETRIEVER_TOP_K)
 
     st.divider()
     st.caption(
-        "Sistema de apoio a decisao. Nao prescreve: toda sugestao passa "
-        "por guardrails programaticos e exige validacao humana."
+        "Decision support system. It does not prescribe: every suggestion "
+        "goes through programmatic guardrails and requires human validation."
     )
 
 # -------------------------------------------------------------- corpo
-st.title("Assistente Medico - Tech Challenge Fase 3")
+st.title("Medical Assistant - Tech Challenge Phase 3")
 
-pergunta = st.text_area(
-    "Pergunta clinica",
-    value="Is early diagnosis associated with better outcomes in sepsis?",
+example = st.selectbox("Example questions", EXAMPLES)
+question = st.text_area(
+    "Clinical question (in English)",
+    value=example,
     height=90,
-    help="A pergunta e sanitizada (PII) antes de chegar ao modelo.",
+    help="The model and the evidence base are in English. "
+         "The question is sanitized (PII) before reaching the model.",
 )
 
-if st.button("Executar fluxo", type="primary"):
-    with st.spinner("Executando o fluxo clinico..."):
-        st.session_state["estado"] = run_flow(pergunta, patient_id=patient_id, k=k)
+if st.button("Run flow", type="primary"):
+    with st.spinner("Running the clinical flow..."):
+        st.session_state["state"] = run_flow(question, patient_id=patient_id, k=k)
 
-estado = st.session_state.get("estado")
+state = st.session_state.get("state")
 
-if estado:
-    st.caption(f"trace_id: `{estado['trace_id']}`")
+if state:
+    st.caption(f"trace_id: `{state['trace_id']}`")
 
-    st.subheader("Fluxo executado")
-    st.code(" -> ".join(estado.get("path", [])), language="text")
+    st.subheader("Executed flow")
+    st.code(" -> ".join(state.get("path", [])), language="text")
 
-    alertas = estado.get("alerts", [])
-    if alertas:
-        st.subheader("Alertas para a equipe medica")
-        for a in alertas:
-            fn_name, rotulo = NIVEL_UI.get(a["nivel"], ("info", "INFO"))
-            getattr(st, fn_name)(f"**{rotulo} - {a['tipo']}**  \n{a['mensagem']}")
+    alerts = state.get("alerts", [])
+    if alerts:
+        st.subheader("Alerts for the medical team")
+        for a in alerts:
+            fn_name, label = LEVEL_UI.get(a["level"], ("info", "INFO"))
+            getattr(st, fn_name)(f"**{label} - {a['type']}**  \n{a['message']}")
 
-    st.subheader("Resposta")
-    st.markdown(estado.get("answer", ""))
+    st.subheader("Answer")
+    st.markdown(state.get("answer", ""))
 
-    violacoes = estado.get("violations", [])
-    if violacoes:
-        st.warning("Guardrails acionados: " + ", ".join(sorted(set(violacoes))))
-    if estado.get("requires_human_validation"):
-        st.info("Conteudo pendente de validacao por profissional de saude.")
+    violations = state.get("violations", [])
+    if violations:
+        st.warning("Guardrails triggered: " + ", ".join(sorted(set(violations))))
+    if state.get("requires_human_validation"):
+        st.info("Content pending validation by a healthcare professional.")
 
-    fontes = estado.get("sources", [])
-    if fontes:
-        st.subheader("Fontes utilizadas (explainability)")
-        for f in fontes:
-            if f["tipo"] == "evidencia_cientifica":
-                with st.expander(f"PMID {f['pmid']} - conclusao: {f['conclusao']}"):
-                    st.write(f["trecho"] + "...")
-                    st.markdown(f"[Abrir no PubMed]({f['url']})")
+    sources = state.get("sources", [])
+    if sources:
+        st.subheader("Sources used (explainability)")
+        for f in sources:
+            if f["type"] == "scientific_evidence":
+                with st.expander(f"PMID {f['pmid']} - conclusion: {f['conclusion']}"):
+                    st.write(f["excerpt"] + "...")
+                    st.markdown(f"[Open in PubMed]({f['url']})")
             else:
-                st.caption(f"Prontuario do paciente {f['paciente_id']} "
-                           f"(fonte: {f['origem']})")
+                st.caption(f"Medical record of patient {f['patient_id']} "
+                           f"(source: {f['origin']})")
 
-    st.subheader("Trilha de auditoria")
-    eventos = audit.read_events(trace_id=estado["trace_id"])
-    st.caption(f"{len(eventos)} evento(s) registrados nesta execucao")
+    st.subheader("Audit trail")
+    events = audit.read_events(trace_id=state["trace_id"])
+    st.caption(f"{len(events)} event(s) recorded in this execution")
     st.json([{"timestamp": e["timestamp"], "event": e["event"], **e["detail"]}
-             for e in eventos])
+             for e in events])
 else:
-    st.info("Selecione um paciente, escreva a pergunta e execute o fluxo.")
+    st.info("Select a patient, write the question and run the flow.")

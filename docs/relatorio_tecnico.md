@@ -313,32 +313,46 @@ possa "acionar diferentes etapas, como verificar exames pendentes, sugerir
 tratamentos e emitir alertas para a equipe médica". Isso exige decisão, não
 sequência. O atendimento foi modelado como máquina de estados com LangGraph.
 
+Os nós e as mensagens do sistema estão em inglês, alinhados ao idioma do
+modelo, da base de evidências e da interface.
+
 ```mermaid
 graph TD;
-    inicio([início]) --> triagem
-    triagem -. bloqueado .-> fim([fim])
-    triagem -. ok .-> carregar_prontuario
-    carregar_prontuario -. bloqueado .-> fim
-    carregar_prontuario -. ok .-> verificar_exames
-    verificar_exames -. pendentes .-> alerta_exames
-    verificar_exames -. nenhum .-> buscar_evidencia
-    alerta_exames --> buscar_evidencia
-    buscar_evidencia --> sugerir_conduta
-    sugerir_conduta --> guardrail
-    guardrail --> alertar_equipe
-    alertar_equipe --> fim
+    start([start]) --> triage
+    triage -. blocked .-> stop([end])
+    triage -. ok .-> load_record
+    load_record -. blocked .-> stop
+    load_record -. ok .-> check_exams
+    check_exams -. pending .-> exams_alert
+    check_exams -. none .-> retrieve_evidence
+    exams_alert --> retrieve_evidence
+    retrieve_evidence --> suggest_approach
+    suggest_approach --> guardrail
+    guardrail --> alert_team
+    alert_team --> stop
 ```
+
+| Nó | Função |
+|---|---|
+| `triage` | Sanitiza PII, barra prompt injection e temas fora de escopo |
+| `load_record` | Consulta a base estruturada do paciente |
+| `check_exams` | Levanta exames pendentes; define o desvio condicional |
+| `exams_alert` | Sinaliza conduta sugerida com informação incompleta |
+| `retrieve_evidence` | Recupera trechos científicos no banco vetorial |
+| `suggest_approach` | Gera a sugestão com a LLM customizada |
+| `guardrail` | Valida a saída fora do modelo |
+| `alert_team` | Consolida alertas por severidade |
 
 O diagrama é gerado a partir do grafo compilado, e não desenhado
 manualmente, eliminando divergência entre documentação e implementação.
 
 ### Pontos de decisão
 
-Perguntas bloqueadas encerram o fluxo na **triagem**, sem que o modelo seja
+Perguntas bloqueadas encerram o fluxo em `triage`, sem que o modelo seja
 carregado — além da economia de recurso, há redução da superfície de risco.
-**Paciente inexistente** também encerra cedo, evitando resposta
-descontextualizada. Havendo **exames pendentes**, o fluxo percorre um nó que
-emite alerta antes de prosseguir.
+Paciente inexistente também encerra cedo, evitando resposta
+descontextualizada. Havendo exames pendentes, o fluxo percorre `exams_alert`
+antes de prosseguir.
 
 O comportamento foi verificado: o paciente PAC-0009, com uma urocultura
 pendente, percorre os oito nós; o PAC-0004, sem pendências, não passa pelo
@@ -348,10 +362,10 @@ nó de alerta.
 
 | Nível | Condição |
 |---|---|
-| crítico | A resposta menciona substância à qual o paciente é alérgico |
-| crítico | O modelo tentou prescrever e a posologia foi removida |
-| atenção | Há exames pendentes, ou a resposta não cita fonte |
-| informativo | Validação humana pendente, em toda resposta |
+| `critical` | A resposta menciona substância à qual o paciente é alérgico |
+| `critical` | O modelo tentou prescrever e a posologia foi removida |
+| `warning` | Há exames pendentes, ou a resposta não cita fonte |
+| `info` | Validação humana pendente, em toda resposta |
 
 O alerta de alergia só é possível cruzando a saída do modelo com a base
 estruturada; nenhuma instrução em prompt garantiria essa verificação.
@@ -440,7 +454,9 @@ completamente.
 posologia, mas padrões são enumeráveis e formulações incomuns podem escapar.
 A validação humana obrigatória mitiga o risco.
 
-**Idioma inconsistente.** O modelo responde em inglês; a interface está em
+**Idioma.** O sistema opera integralmente em inglês — modelo, base de
+evidências, interface e mensagens do sistema —, o que exige que as
+perguntas sejam formuladas nesse idioma. A documentação permanece em
 português.
 
 **Sem controle de acesso.** Inexistem autenticação e perfis de usuário.

@@ -4,9 +4,8 @@ Requisito: "Implementar logging detalhado para
 rastreamento e auditoria".
 
 Cada evento e gravado como uma linha JSON (JSONL) em `logs/audit.log`.
-O formato append-only e uma linha por evento facilita a leitura
-incremental, o parsing por ferramentas externas e a exibicao na interface
-de demonstracao.
+O formato append-only facilita a leitura incremental, o parsing por
+ferramentas externas e a exibicao na interface.
 
 Nenhum dado sensivel bruto deve entrar aqui: o texto da pergunta ja chega
 sanitizado pelo guardrail de entrada, e o paciente e identificado apenas
@@ -20,16 +19,14 @@ from typing import Any, Dict, List, Optional
 
 from src.config import AUDIT_LOG
 
-# Tipos de evento previstos no fluxo. Mantidos como constantes para evitar
-# divergencia de nomes entre os modulos que registram.
-EVENT_INPUT = "input_recebido"
-EVENT_RETRIEVAL = "evidencia_recuperada"
-EVENT_PATIENT = "prontuario_consultado"
-EVENT_LLM = "resposta_gerada"
-EVENT_GUARDRAIL = "guardrail_aplicado"
-EVENT_ALERT = "alerta_equipe"
-EVENT_NODE = "no_executado"
-EVENT_ERROR = "erro"
+EVENT_INPUT = "input_received"
+EVENT_RETRIEVAL = "evidence_retrieved"
+EVENT_PATIENT = "record_consulted"
+EVENT_LLM = "answer_generated"
+EVENT_GUARDRAIL = "guardrail_applied"
+EVENT_ALERT = "team_alert"
+EVENT_NODE = "node_executed"
+EVENT_ERROR = "error"
 
 
 def _now() -> str:
@@ -70,11 +67,7 @@ def read_events(
     trace_id: Optional[str] = None,
     log_path=None,
 ) -> List[Dict[str, Any]]:
-    """Le a trilha, opcionalmente filtrando por execucao.
-
-    Linhas corrompidas sao ignoradas para que um evento malformado nunca
-    impeca a auditoria dos demais.
-    """
+    """Le a trilha, opcionalmente filtrando por execucao."""
     path = log_path or AUDIT_LOG
     if not path.exists():
         return []

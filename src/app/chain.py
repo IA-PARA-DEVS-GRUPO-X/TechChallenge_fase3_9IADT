@@ -19,9 +19,7 @@ from src.db.patients import format_patient, get_patient
 from src.security import audit, guardrails
 
 # O formato de saida replica o usado no fine-tuning (Verdict/Rationale).
-# Testes mostraram que pedir um formato livre faz o modelo ignorar as
-# regras, inclusive a citacao de PMID: modelos pequenos aderem melhor ao
-# formato que viram no treino.
+# Com formato livre o modelo ignora as regras, inclusive a citacao de PMID.
 ASSISTANT_PROMPT = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
     ("human",
@@ -39,12 +37,10 @@ NO_PATIENT = "No patient specified; answer in general terms."
 
 
 def format_evidence(docs: List) -> str:
-    """Numera os trechos recuperados e prefixa o PMID para citacao."""
+    """Prefixa cada trecho com o PMID, para que o modelo possa citar."""
     if not docs:
         return "No relevant evidence found in the database."
 
-    # Sem numeracao ("[1]", "[2]"): o modelo tende a citar o primeiro
-    # identificador que ve, e o indice da lista nao e uma fonte rastreavel.
     blocos = []
     for doc in docs:
         pmid = doc.metadata.get("pmid", "unknown")
@@ -56,19 +52,19 @@ def build_sources(docs: List, patient_id: Optional[str]) -> List[Dict]:
     """Monta a lista de fontes devolvida junto da resposta."""
     sources = [
         {
-            "tipo": "evidencia_cientifica",
+            "type": "scientific_evidence",
             "pmid": doc.metadata.get("pmid"),
             "url": f"https://pubmed.ncbi.nlm.nih.gov/{doc.metadata.get('pmid')}/",
-            "conclusao": doc.metadata.get("label"),
-            "trecho": doc.page_content[:300],
+            "conclusion": doc.metadata.get("label"),
+            "excerpt": doc.page_content[:300],
         }
         for doc in docs
     ]
     if patient_id:
         sources.append({
-            "tipo": "prontuario",
-            "paciente_id": patient_id,
-            "origem": "data/patients.db",
+            "type": "medical_record",
+            "patient_id": patient_id,
+            "origin": "data/patients.db",
         })
     return sources
 
@@ -79,20 +75,16 @@ def ask(
     k: int = RETRIEVER_TOP_K,
     trace_id: Optional[str] = None,
 ) -> Dict:
-    """Executa o pipeline completo e devolve resposta + fontes.
-
-    Retorna: {"answer", "sources", "patient_id", "trace_id", "guardrail"}
-    """
+    """Executa o pipeline completo e devolve resposta + fontes."""
     from src.app.llm import get_llm
     from src.rag.vectorstore import get_retriever
 
     trace_id = trace_id or audit.new_trace_id()
 
-    # --- guardrail de entrada ---------------------------------------
     gate = guardrails.check_input(question)
     audit.log_event(
         audit.EVENT_INPUT, trace_id,
-        {"pergunta": gate.text, "violacoes": gate.violations},
+        {"question": gate.text, "violations": gate.violations},
         patient_id=patient_id,
     )
     if not gate.allowed:
@@ -100,27 +92,25 @@ def ask(
                 "trace_id": trace_id, "guardrail": gate}
     question = gate.text
 
-    # --- contexto do paciente ---------------------------------------
     patient_context = NO_PATIENT
     if patient_id:
         patient = get_patient(patient_id)
         if patient is None:
             audit.log_event(audit.EVENT_ERROR, trace_id,
-                            {"motivo": "paciente_inexistente"},
+                            {"reason": "patient_not_found"},
                             patient_id=patient_id)
-            return {"answer": f"Paciente {patient_id} nao encontrado na base.",
+            return {"answer": f"Patient {patient_id} not found in the database.",
                     "sources": [], "patient_id": patient_id,
                     "trace_id": trace_id, "guardrail": None}
         patient_context = format_patient(patient)
         audit.log_event(
             audit.EVENT_PATIENT, trace_id,
-            {"diagnostico": patient["diagnostico"],
-             "exames_pendentes": sum(1 for e in patient["exames"]
-                                     if e["status"] == "pendente")},
+            {"diagnosis": patient["diagnostico"],
+             "pending_exams": sum(1 for e in patient["exames"]
+                                  if e["status"] == "pendente")},
             patient_id=patient_id,
         )
 
-    # --- recuperacao de evidencia -----------------------------------
     docs = get_retriever(k).invoke(question)
     audit.log_event(
         audit.EVENT_RETRIEVAL, trace_id,
@@ -128,7 +118,6 @@ def ask(
         patient_id=patient_id,
     )
 
-    # --- geracao -----------------------------------------------------
     chain = ASSISTANT_PROMPT | get_llm() | StrOutputParser()
     raw_answer = chain.invoke({
         "question": question,
@@ -136,15 +125,14 @@ def ask(
         "evidence": format_evidence(docs),
     })
     audit.log_event(audit.EVENT_LLM, trace_id,
-                    {"caracteres": len(raw_answer)}, patient_id=patient_id)
+                    {"characters": len(raw_answer)}, patient_id=patient_id)
 
-    # --- guardrail de saida ------------------------------------------
     checked = guardrails.check_output(raw_answer.strip(),
                                       has_evidence=bool(docs))
     audit.log_event(
         audit.EVENT_GUARDRAIL, trace_id,
-        {"violacoes": checked.violations,
-         "requer_validacao_humana": checked.requires_human_validation},
+        {"violations": checked.violations,
+         "requires_human_validation": checked.requires_human_validation},
         patient_id=patient_id,
     )
 
