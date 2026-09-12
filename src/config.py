@@ -157,3 +157,8 @@ PATIENTS_SEED_FILE = DATA_DIR / "patients_seed.json"
 # --------------------------------------------------------------------
 PATIENTS_DB = DATA_DIR / "patients.db"
 PATIENTS_SEED_FILE = DATA_DIR / "patients_seed.json"
+
+# --------------------------------------------------------------------
+# Auditoria
+# --------------------------------------------------------------------
+AUDIT_LOG = LOGS_DIR / "audit.log"

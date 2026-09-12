@@ -31,7 +31,7 @@ PATTERNS: Dict[str, re.Pattern] = {
     # Nomes proprios precedidos de titulo clinico
     "[NAME]": re.compile(
         r"\b(?:Dr|Dra|Doutor|Doutora|Prof|Mr|Mrs|Ms|Sr|Sra)\.?\s+"
-        r"(?:[A-Z][a-zA-ZÀ-ÿ'-]+\s?){1,3}"
+        r"(?:[A-Z][a-zA-ZÀ-ÿ'-]+)(?:\s+[A-Z][a-zA-ZÀ-ÿ'-]+){0,2}"
     ),
 }
 
