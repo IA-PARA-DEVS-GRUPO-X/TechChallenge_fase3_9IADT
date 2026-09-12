@@ -1,0 +1,92 @@
+{
+  "experimento_1": {
+    "descricao": "prompt em portugues, 3 epocas, sem balanceamento",
+    "passos": 150,
+    "duracao": "1h59",
+    "parametros_treinados": 18464768,
+    "parametros_totais": 1562179072,
+    "eval_loss_por_epoca": {
+      "1": 1.58,
+      "2": 1.604,
+      "3": 1.632
+    },
+    "melhor_epoca": 1,
+    "observacao": "overfitting a partir da 1a epoca; melhor checkpoint preservado",
+    "train_loss_por_passo": [
+      [
+        0.2,
+        1.79
+      ],
+      [
+        0.4,
+        1.49
+      ],
+      [
+        0.6,
+        1.539
+      ],
+      [
+        0.8,
+        1.482
+      ],
+      [
+        1.0,
+        1.547
+      ],
+      [
+        1.2,
+        1.417
+      ],
+      [
+        1.4,
+        1.381
+      ],
+      [
+        1.6,
+        1.27
+      ],
+      [
+        1.8,
+        1.366
+      ],
+      [
+        2.0,
+        1.354
+      ],
+      [
+        2.2,
+        1.2
+      ],
+      [
+        2.4,
+        1.229
+      ],
+      [
+        2.6,
+        1.152
+      ],
+      [
+        2.8,
+        1.236
+      ],
+      [
+        3.0,
+        1.228
+      ]
+    ]
+  },
+  "experimento_2": {
+    "descricao": "prompt em ingles, 1 epoca, classes balanceadas no treino",
+    "passos": 50,
+    "duracao": "36min",
+    "balanceamento": {
+      "maybe": "88 -> 266",
+      "no": "270 -> 266",
+      "yes": "441 -> 266"
+    },
+    "exemplos_treino": 798,
+    "eval_loss": 1.639,
+    "eval_mean_token_accuracy": 0.6248,
+    "observacao": "eval_loss maior que o exp. 1 porque a validacao mantem a distribuicao real enquanto o modelo foi treinado balanceado; o F1 macro no teste e superior"
+  }
+}
