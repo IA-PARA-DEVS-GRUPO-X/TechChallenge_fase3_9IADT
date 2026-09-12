@@ -1,0 +1,76 @@
+{
+  "base": {
+    "n": 102,
+    "accuracy": 0.5686,
+    "f1": {
+      "maybe": 0.0,
+      "no": 0.15,
+      "yes": 0.7237,
+      "macro": 0.2912
+    },
+    "rouge_l": 0.0425,
+    "taxa_nao_parseada": 0.0,
+    "matriz_confusao": {
+      "maybe": {
+        "maybe": 0,
+        "no": 1,
+        "yes": 10,
+        "unparsed": 0
+      },
+      "no": {
+        "maybe": 1,
+        "no": 3,
+        "yes": 31,
+        "unparsed": 0
+      },
+      "yes": {
+        "maybe": 0,
+        "no": 1,
+        "yes": 55,
+        "unparsed": 0
+      }
+    },
+    "exemplos": [
+      "Veredito: Yes\n\nJustificativa: A evidência científica demonstra que os estados dos Estados Unidos com as taxas mais altas de mortes por acidentes de trânsito também apresentam taxas mais altas de mortes por outros tipos de acidentes como queda, intoxicação, afogamento, incêndio, asfixia, homicídio e suicídio, além de taxas mais altas para o setor comercial e construtivo. Por outro lado, os estados dos Estados Unidos com as taxas mais baixas de mortes por acidentes de trânsito também apresentam taxas mais baixas de mortes por outros tipos de acidentes. Portanto, é plausível afirm",
+      "Veredito: Yes\n\nJustificativa: Os dados demonstram que os astmicos paucigranulocíticos apresentaram elevados níveis de células eosinófilas no sputo, além de uma elevada quantidade de células de linfócitos no sputo, o que indica uma inflamação sistêmica. Além disso, os astmicos paucigranulocíticos tiveram níveis elevados de leucócitos no sangue, indicando uma inflamação sistêmica. Portanto, é plausível concluir que os astmicos paucigranulocíticos são realmente inflamatórios.",
+      "Veredito: Yes\n\nJustificativa: O estudo demonstra que o nível de bilirrubina total (TB) é associado a condições como a doença cardíaca, a fadiga cardíaca e a fibrilação auricular, todas dessas condições podem produzir emboli cardíacos e causar infarto cerebral. No entanto, a TB não parece ser um marcador eficaz para diferenciar infartos cerebrais isquêmicos de outros tipos de infarto cerebral. A TB foi encontrada como um marcador independente de infarto cerebral isquêmico no estudo, mas não foi capaz de diferenciar infartos cerebrais isquêmicos de outros tipos de infarto cerebral"
+    ]
+  },
+  "finetuned": {
+    "n": 102,
+    "accuracy": 0.598,
+    "f1": {
+      "maybe": 0.0,
+      "no": 0.2857,
+      "yes": 0.7333,
+      "macro": 0.3397
+    },
+    "rouge_l": 0.0464,
+    "taxa_nao_parseada": 0.0,
+    "matriz_confusao": {
+      "maybe": {
+        "maybe": 0,
+        "no": 0,
+        "yes": 11,
+        "unparsed": 0
+      },
+      "no": {
+        "maybe": 1,
+        "no": 6,
+        "yes": 28,
+        "unparsed": 0
+      },
+      "yes": {
+        "maybe": 0,
+        "no": 1,
+        "yes": 55,
+        "unparsed": 0
+      }
+    },
+    "exemplos": [
+      "Veredito: Yes\n\nJustificativa: A evidência científica demonstra que os estados dos Estados Unidos com as taxas mais altas de mortes por acidentes de trânsito também apresentam taxas mais altas de mortes por outros tipos de acidentes como queda, intoxicação, afogamento, incêndio, asfixia, homicídio e suicídio, além de taxas mais altas para o setor comercial e construtivo. Por outro lado, os estados dos Estados Unidos com as taxas mais baixas de mortes por acidentes de trânsito também apresentam taxas mais baixas de mortes por outros tipos de acidentes. Portanto, é plausível afirm",
+      "Veredito: Yes\n\nJustificativa: A análise clínica demonstra que os astmicos paucigranulocíticos apresentam elevados níveis de células eosinófilas no sputo, indicando uma inflamação sistêmica. Além disso, os níveis de células eosinófilas no sputo são elevados em todos os tipos de astmias, incluindo o paucigranulocítico, enquanto os níveis de células neutrofilas no sputo são baixos em todos os tipos de astmias, incluindo o paucigranulocítico. Além disso, os níveis de células neutrofilas no sang",
+      "Veredito: Yes\n\nJustificativa: O estudo demonstra que o nível de bilirrubina total (TB) é associado com condições como doenças cardíacas, como a fibrilação atrial, o coração pode produzir emboli cardíacos e causar infarto cerebral. Além disso, o estudo mostra que o nível de TB é um fator independentmente preditivo de infarto cerebral em um modelo multivariado, indicando que o nível de TB pode diferenciar infartos cerebrais cardioembólicos de outros tipos de infarto cerebral. Portanto, o nível de TB pode ser útil para diferenciar infartos cerebrais cardioembólicos de outros tipos de infarto cerebral."
+    ]
+  }
+}

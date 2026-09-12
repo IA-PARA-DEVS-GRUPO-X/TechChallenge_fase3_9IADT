@@ -1,10 +1,10 @@
 """Fine-tuning QLoRA do assistente medico.
-
-Carrega o modelo base em 4-bit (NF4) e treina apenas adaptadores LoRA.
 """
 
 import argparse
 import json
+import random
+from typing import Dict, List
 
 import torch
 from datasets import Dataset
@@ -18,23 +18,64 @@ from trl import SFTConfig, SFTTrainer
 
 from src.config import (
     ADAPTER_DIR,
+    BALANCE_TRAIN,
     BASE_LLM,
     LORA_CONFIG,
     MAX_SEQ_LENGTH,
+    RANDOM_SEED,
     TRAIN_FILE,
     TRAINING_ARGS,
     VAL_FILE,
 )
 
 
-def load_jsonl_dataset(path) -> Dataset:
+def load_jsonl(path) -> List[dict]:
     rows = []
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
-                rows.append({"messages": json.loads(line)["messages"]})
-    return Dataset.from_list(rows)
+                rows.append(json.loads(line))
+    return rows
+
+
+def balance(rows: List[dict]) -> List[dict]:
+    """Iguala a quantidade de exemplos por rotulo.
+
+    Combina undersampling da classe majoritaria com oversampling das
+    minoritarias, mantendo o tamanho total proximo ao original.
+
+    Aplicar SOMENTE no conjunto de treino: validacao e teste precisam
+    preservar a distribuicao real do problema.
+    """
+    rng = random.Random(RANDOM_SEED)
+
+    por_rotulo: Dict[str, List[dict]] = {}
+    for r in rows:
+        por_rotulo.setdefault(r["label"], []).append(r)
+
+    alvo = len(rows) // len(por_rotulo)
+    balanceado: List[dict] = []
+
+    print("[info] balanceamento do conjunto de treino:")
+    for rotulo, itens in sorted(por_rotulo.items()):
+        if len(itens) >= alvo:
+            escolhidos = rng.sample(itens, alvo)          # undersampling
+            operacao = "reduzido"
+        else:
+            escolhidos = list(itens)                       # oversampling
+            while len(escolhidos) < alvo:
+                escolhidos.append(rng.choice(itens))
+            operacao = "replicado"
+        print(f"       {rotulo:6s} {len(itens):4d} -> {len(escolhidos):4d}  ({operacao})")
+        balanceado.extend(escolhidos)
+
+    rng.shuffle(balanceado)
+    return balanceado
+
+
+def to_dataset(rows: List[dict]) -> Dataset:
+    return Dataset.from_list([{"messages": r["messages"]} for r in rows])
 
 
 def build_model(model_name: str):
@@ -54,7 +95,7 @@ def build_model(model_name: str):
         device_map="auto",
         trust_remote_code=True,
     )
-    model.config.use_cache = False  # incompativel com gradient checkpointing
+    model.config.use_cache = False
     model.config.pretraining_tp = 1
 
     model = prepare_model_for_kbit_training(
@@ -69,21 +110,20 @@ def build_tokenizer(model_name: str):
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"  # correto para treino (left apenas p/ geracao)
+    tokenizer.padding_side = "right"
     return tokenizer
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Fine-tuning QLoRA - PubMedQA")
-    p.add_argument("--model", default=BASE_LLM, help="modelo base no HuggingFace")
+    p.add_argument("--model", default=BASE_LLM)
     p.add_argument("--epochs", type=float, default=None)
     p.add_argument("--batch-size", type=int, default=None)
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--output", default=str(ADAPTER_DIR))
-    p.add_argument(
-        "--max-seq-length", type=int, default=MAX_SEQ_LENGTH,
-        help="reduzir para 1024 se ocorrer OOM na T4",
-    )
+    p.add_argument("--max-seq-length", type=int, default=MAX_SEQ_LENGTH)
+    p.add_argument("--no-balance", action="store_true",
+                   help="desliga o balanceamento de classes no treino")
     return p.parse_args()
 
 
@@ -98,8 +138,12 @@ def run() -> None:
 
     print(f"[info] GPU: {torch.cuda.get_device_name(0)}")
 
-    train_ds = load_jsonl_dataset(TRAIN_FILE)
-    val_ds = load_jsonl_dataset(VAL_FILE)
+    train_rows = load_jsonl(TRAIN_FILE)
+    if BALANCE_TRAIN and not args.no_balance:
+        train_rows = balance(train_rows)
+
+    train_ds = to_dataset(train_rows)
+    val_ds = to_dataset(load_jsonl(VAL_FILE))
     print(f"[info] train={len(train_ds)} | val={len(val_ds)}")
 
     tokenizer = build_tokenizer(args.model)
@@ -120,9 +164,6 @@ def run() -> None:
         gradient_checkpointing_kwargs={"use_reentrant": False},
         bf16=torch.cuda.is_bf16_supported(),
         fp16=not torch.cuda.is_bf16_supported(),
-        # Treina apenas nos tokens da resposta do assistente, nao no prompt.
-        # Melhora a qualidade do veredito e evita o modelo aprender a copiar
-        # o contexto de entrada.
         assistant_only_loss=True,
         **cfg,
     )

@@ -1,0 +1,76 @@
+{
+  "base": {
+    "n": 102,
+    "accuracy": 0.6275,
+    "f1": {
+      "maybe": 0.0,
+      "no": 0.3846,
+      "yes": 0.766,
+      "macro": 0.3835
+    },
+    "rouge_l": 0.1695,
+    "taxa_nao_parseada": 0.0,
+    "matriz_confusao": {
+      "maybe": {
+        "maybe": 0,
+        "no": 5,
+        "yes": 6,
+        "unparsed": 0
+      },
+      "no": {
+        "maybe": 0,
+        "no": 10,
+        "yes": 25,
+        "unparsed": 0
+      },
+      "yes": {
+        "maybe": 0,
+        "no": 2,
+        "yes": 54,
+        "unparsed": 0
+      }
+    },
+    "exemplos": [
+      "Yes, there are differences in injury mortality rates between U.S. states. The study found that the six states with the highest rates of road traffic deaths (Group 1 states) also had higher rates of other types of injuries such as falls, poisonings, drownings, fires, suffocations, homicides, and suicides. Conversely, the six states with the lowest rates of road traffic deaths (Group 2 states) had lower rates of these other types of injuries. Therefore, the answer is yes, some U.S. states do have higher/lower injury mortality rates than others.",
+      "Yes.\n\nThe study found that paucigranulocytic asthmatics have increased levels of sputum eosinophils and lymphocytes, indicating a more inflammatory phenotype. Additionally, they showed increased blood leukocyte counts and elevated CRP and fibrinogen levels, suggesting a systemic inflammatory response. This supports the conclusion that paucigranulocytic asthmatics are indeed more inflammatory compared to other asthma phenotypes.",
+      "Yes.\n\nThe study found that serum total bilirubin (TB) was significantly associated with cardioembolic stroke, as well as with atrial fibrillation, larger left atrium diameter, and lower left ventricular fractional shortening. The higher TB quartile group had a higher incidence of cardioembolic stroke compared to the lower quartile group. Additionally, TB was identified as a statistically significant independent predictor of cardioembolic stroke in a multivariable setting. This suggests that serum TB may be useful in differentiating cardioembolic stroke from other stroke subtypes."
+    ]
+  },
+  "finetuned": {
+    "n": 102,
+    "accuracy": 0.6275,
+    "f1": {
+      "maybe": 0.0,
+      "no": 0.3846,
+      "yes": 0.766,
+      "macro": 0.3835
+    },
+    "rouge_l": 0.1614,
+    "taxa_nao_parseada": 0.0,
+    "matriz_confusao": {
+      "maybe": {
+        "maybe": 0,
+        "no": 5,
+        "yes": 6,
+        "unparsed": 0
+      },
+      "no": {
+        "maybe": 0,
+        "no": 10,
+        "yes": 25,
+        "unparsed": 0
+      },
+      "yes": {
+        "maybe": 0,
+        "no": 2,
+        "yes": 54,
+        "unparsed": 0
+      }
+    },
+    "exemplos": [
+      "Yes, there are differences in injury mortality rates between U.S. states. The study found that the six states with the highest rates of road traffic deaths (Group 1 states) also had higher rates of other types of injuries such as falls, poisonings, drownings, fires, suffocations, homicides, and suicides. Conversely, the six states with the lowest rates of road traffic deaths (Group 2 states) had lower rates of these other types of injuries. Therefore, the answer is yes, some U.S. states do have higher/lower injury mortality rates than others.",
+      "Yes.\n\nThe study found that paucigranulocytic asthmatics have increased levels of sputum eosinophils and lymphocytes, indicating a more inflammatory phenotype. Additionally, they showed increased blood leukocyte counts and elevated CRP and fibrinogen levels, suggesting a systemic inflammatory response. This supports the idea that paucigranulocytic asthmatics are indeed more inflammatory compared to other asthma phenotypes.",
+      "Yes.\n\nThe study found that serum total bilirubin (TB) was significantly associated with cardioembolic stroke, as well as with atrial fibrillation, larger left atrium diameter, and lower left ventricular fractional shortening. The higher TB quartile group had a higher incidence of cardioembolic stroke compared to the lower quartile group. Additionally, TB was identified as a statistically significant independent predictor of cardioembolic stroke in a multivariable setting. Therefore, serum TB appears to be a useful biomarker to differentiate cardioembolic stroke from other stroke subtypes."
+    ]
+  }
+}

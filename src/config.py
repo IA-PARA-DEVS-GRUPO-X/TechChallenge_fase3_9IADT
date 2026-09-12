@@ -46,30 +46,17 @@ MIN_CONTEXT_CHARS = 100
 MAX_CONTEXT_CHARS = 6000
 VALID_LABELS = {"yes", "no", "maybe"}
 
+# Balanceamento do conjunto de treino (experimento 2).
+# O dataset original tem 55% yes / 34% no / 11% maybe, o que leva o modelo
+# a ignorar as classes minoritarias. Aplicado SOMENTE no treino: validacao
+# e teste mantem a distribuicao real.
+BALANCE_TRAIN = True
+
 # --------------------------------------------------------------------
 # Modelos
 # --------------------------------------------------------------------
 BASE_LLM = "Qwen/Qwen2.5-1.5B-Instruct"
 ADAPTER_DIR = MODELS_DIR / "qwen2.5-1.5b-pubmedqa-lora"
-
-# --------------------------------------------------------------------
-# Prompt usado no treino e na inferencia
-# --------------------------------------------------------------------
-SYSTEM_PROMPT = (
-    "Voce e um assistente medico de apoio a decisao clinica. "
-    "Responda com base exclusivamente na evidencia fornecida. "
-    "Nunca prescreva medicamentos ou dosagens diretamente: toda "
-    "sugestao exige validacao de um profissional de saude."
-)
-
-INSTRUCTION_TEMPLATE = (
-    "Pergunta clinica: {question}\n\n"
-    "Evidencia cientifica:\n{context}\n\n"
-    "Responda com um veredito (yes/no/maybe) e uma justificativa."
-)
-
-VERDICT_PREFIX = "Veredito:"
-RATIONALE_PREFIX = "Justificativa:"
 
 # --------------------------------------------------------------------
 # Fine-tuning (QLoRA)
@@ -87,7 +74,9 @@ LORA_CONFIG = {
 }
 
 TRAINING_ARGS = {
-    "num_train_epochs": 3,
+    # O experimento 1 mostrou overfitting ja a partir da 1a epoca:
+    # eval_loss 1.580 -> 1.604 -> 1.632. Uma epoca e o suficiente.
+    "num_train_epochs": 1,
     "per_device_train_batch_size": 2,
     "gradient_accumulation_steps": 8,
     "learning_rate": 2e-4,
@@ -97,7 +86,7 @@ TRAINING_ARGS = {
     "logging_steps": 10,
     "eval_strategy": "epoch",
     "save_strategy": "epoch",
-    "save_total_limit": 3,
+    "save_total_limit": 2,
     "load_best_model_at_end": True,
     "metric_for_best_model": "eval_loss",
     "greater_is_better": False,
@@ -121,3 +110,26 @@ GENERATION_ARGS = {
 }
 
 EVAL_RESULTS_FILE = DOCS_DIR / "evaluation_results.json"
+
+# --------------------------------------------------------------------
+# Prompt usado no treino e na inferencia
+# --------------------------------------------------------------------
+# Em ingles, alinhado ao idioma do PubMedQA. No experimento 1 a instrucao
+# estava em portugues e as respostas de referencia em ingles: o modelo
+# respondia em portugues e o ROUGE-L media diferenca de idioma, nao
+# qualidade da justificativa.
+SYSTEM_PROMPT = (
+    "You are a clinical decision support assistant. "
+    "Answer strictly based on the provided evidence. "
+    "Never prescribe drugs or dosages directly: every suggestion "
+    "requires validation by a licensed healthcare professional."
+)
+
+INSTRUCTION_TEMPLATE = (
+    "Clinical question: {question}\n\n"
+    "Scientific evidence:\n{context}\n\n"
+    "Answer with a verdict (yes/no/maybe) and a rationale."
+)
+
+VERDICT_PREFIX = "Verdict:"
+RATIONALE_PREFIX = "Rationale:"
