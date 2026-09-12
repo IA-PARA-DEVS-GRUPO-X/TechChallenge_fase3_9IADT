@@ -133,3 +133,27 @@ INSTRUCTION_TEMPLATE = (
 
 VERDICT_PREFIX = "Verdict:"
 RATIONALE_PREFIX = "Rationale:"
+
+# --------------------------------------------------------------------
+# Banco vetorial (RAG)
+# --------------------------------------------------------------------
+# all-MiniLM-L6-v2
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+VECTORDB_DIR = BASE_DIR / "chromadb"
+VECTORDB_COLLECTION = "pubmedqa"
+
+# Quantos trechos de evidencia enviar ao modelo por pergunta.
+RETRIEVER_TOP_K = 3
+
+# --------------------------------------------------------------------
+# Base estruturada de pacientes (dados sinteticos)
+# --------------------------------------------------------------------
+PATIENTS_DB = DATA_DIR / "patients.db"
+PATIENTS_SEED_FILE = DATA_DIR / "patients_seed.json"
+
+# --------------------------------------------------------------------
+# Base estruturada de pacientes (dados sinteticos)
+# --------------------------------------------------------------------
+PATIENTS_DB = DATA_DIR / "patients.db"
+PATIENTS_SEED_FILE = DATA_DIR / "patients_seed.json"
